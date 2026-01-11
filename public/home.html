@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote DevTools Inspector</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .status {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        .status.connecting { background: rgba(255, 193, 7, 0.2); color: #ff9800; }
+        .status.connected { background: rgba(76, 175, 80, 0.2); color: #4caf50; }
+        .status.disconnected { background: rgba(156, 39, 176, 0.2); color: #9c27b0; }
+        .status.error { background: rgba(244, 67, 54, 0.2); color: #f44336; }
+
+        .content {
+            padding: 20px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .info-item {
+            padding: 9px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #333;
+            flex-shrink: 0;
+        }
+        .info-value {
+            color: #666;
+            word-break: keep-all;
+            margin-left: 6px;
+            flex-shrink: 0;
+        }
+        .info-value a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .info-value a:hover {
+            text-decoration: underline;
+        }
+
+        #backendUrl {
+            margin-top: 6px;
+        }
+
+        .usage-section {
+            background: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .usage-title {
+            font-weight: 600;
+            color: #0c5460;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        .usage-step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        .step-content {
+            flex: 1;
+            color: #0c5460;
+        }
+
+        .targets-section {
+            margin-top: 30px;
+        }
+        .targets-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .targets-list {
+            display: grid;
+            gap: 15px;
+        }
+        .target-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        .target-icon {
+            width: 48px;
+            height: 48px;
+            background: #667eea;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            margin-right: 15px;
+        }
+        .target-info {
+            flex: 1;
+            margin-right: 15px;
+        }
+        .target-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .target-url {
+            color: #666;
+            font-size: 14px;
+            word-break: break-all;
+        }
+        .target-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            border-top: 1px solid #e9ecef;
+            color: #666;
+        }
+
+        .script-copy {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px 15px;
+            margin-top: 10px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .script-copy:hover {
+            background: #e9ecef;
+            border-color: #adb5bd;
+        }
+        .script-copy .copy-icon {
+            color: #6c757d;
+            font-size: 16px;
+            margin-left: 10px;
+        }
+        .script-copy:hover .copy-icon {
+            color: #495057;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Remote DevTools Inspector</h1>
+            <span id="status" class="status connecting">Connecting</span>
+        </div>
+
+        <div class="content">
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">WebSocket Host：</div>
+                    <div class="info-value" id="wsHost">Loading...</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Port：</div>
+                    <div class="info-value" id="wsPort">Loading...</div>
+                </div>
+            </div>
+
+            <div class="usage-section">
+                <div class="usage-title">How to Use</div>
+                <div class="usage-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <strong>(Recommended)</strong> Add global configuration to your page before loading backend script:
+                        <div class="script-copy" id="configTag" onclick="copyConfigTag()">
+                            <span id="configContent">Loading...</span>
+                            <span class="copy-icon">📋</span>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 13px; color: #666;">
+                            This allows the backend to automatically connect to the correct server without parsing script URLs.
+                        </div>
+                    </div>
+                </div>
+                <div class="usage-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        Add backend.js to your debugging target page:<br>
+                        <div id="backendUrl">Loading...</div>
+                        <div class="script-copy" id="scriptTag" onclick="copyScriptTag()">
+                            <span id="scriptContent">Loading...</span>
+                            <span class="copy-icon">📋</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="usage-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        Open your target page, then select it below to start debugging
+                    </div>
+                </div>
+            </div>
+
+            <div class="targets-section">
+                <div class="targets-title">Available Targets</div>
+                <div id="targetsList" class="targets-list">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <div>No debugging targets detected</div>
+                        <div style="margin-top: 10px; font-size: 14px;">
+                            Make sure to add the backend script to your page
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            Powered by <strong>Remote DevTools</strong> v1.0.0
+        </div>
+    </div>
+
+    <!-- Toast 提示 -->
+    <div id="toast" class="toast">
+        Script tag copied to clipboard! 📋
+    </div>
+
+    <script>
+        let homeWs = null;
+        let backends = [];
+
+        // Initialize page with config
+        window.addEventListener('DOMContentLoaded', function() {
+            if (typeof __config__ !== 'undefined') {
+                document.getElementById('wsHost').textContent = __config__.wsHost || 'localhost';
+                document.getElementById('wsPort').textContent = __config__.wsPort || '8899';
+
+                // 更新 backend URL
+                const backendUrl = __config__.backendjs || '';
+                document.getElementById('backendUrl').innerHTML =
+                    '<a href="' + backendUrl + '" target="_blank">' + backendUrl + '</a>';
+
+                // 更新 script 标签内容 (避免 HTML 解析问题)
+                const scriptTag = '<script src="' + backendUrl + '"></' + 'script>';
+                document.getElementById('scriptContent').textContent = scriptTag;
+
+                // 生成全局配置变量
+                const protocol = location.protocol;
+                const wsHost = __config__.wsHost || 'localhost';
+                const wsPort = __config__.wsPort || '8899';
+                const configVar = `window.__remote_devtools_ws_query__ = '${protocol}//${wsHost}:${wsPort}?ws=1&wsHost=${wsHost}&wsPort=${wsPort}';`;
+                document.getElementById('configContent').textContent = configVar;
+
+                // 初始化后端列表
+                if (__config__.backends && __config__.backends.length > 0) {
+                    backends = __config__.backends;
+                    updateBackendsList(backends);
+                }
+
+                // 更新状态
+                updateStatus(__config__.status || 'connecting');
+
+                // 建立 WebSocket 连接以实时监听后端变化
+                connectToHomeWebSocket();
+            }
+        });
+
+        // 复制 script 标签到剪贴板
+        function copyScriptTag() {
+            const scriptContent = document.getElementById('scriptContent').textContent;
+            copyToClipboard(scriptContent, 'Script tag copied to clipboard! 📋');
+        }
+
+        // 复制配置变量到剪贴板
+        function copyConfigTag() {
+            const configContent = document.getElementById('configContent').textContent;
+            copyToClipboard(configContent, 'Configuration copied to clipboard! 📋');
+        }
+
+        // 通用复制功能
+        function copyToClipboard(text, successMessage) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                // 现代浏览器
+                navigator.clipboard.writeText(text).then(function() {
+                    showToast(successMessage);
+                }, function(err) {
+                    console.error('复制失败: ', err);
+                    fallbackCopyTextToClipboard(text, successMessage);
+                });
+            } else {
+                // 降级方案
+                fallbackCopyTextToClipboard(text, successMessage);
+            }
+        }
+
+        // 降级复制方案
+        function fallbackCopyTextToClipboard(text, successMessage) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+
+            // 防止在 iOS 中出现缩放
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToast(successMessage || 'Copied successfully! 📋');
+                } else {
+                    showToast('Copy failed', 'error');
+                }
+            } catch (err) {
+                console.error('Fallback: Copy failed', err);
+                showToast('Copy failed', 'error');
+            }
+
+            document.body.removeChild(textArea);
+        }
+
+        // 显示 toast 提示
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+
+            if (type === 'error') {
+                toast.style.background = '#dc3545';
+            } else {
+                toast.style.background = '#28a745';
+            }
+
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function connectToHomeWebSocket() {
+            if (!__config__) return;
+
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${__config__.wsHost}:${__config__.wsPort}/home/${__config__.sessionId}`;
+
+            console.log('[Home] Connecting to WebSocket:', wsUrl);
+
+            try {
+                homeWs = new WebSocket(wsUrl);
+
+                homeWs.onopen = function() {
+                    console.log('[Home] WebSocket connected');
+                    updateStatus('connected');
+                };
+
+                homeWs.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleHomeMessage(data);
+                    } catch (e) {
+                        console.error('[Home] Failed to parse WebSocket message:', e);
+                    }
+                };
+
+                homeWs.onclose = function() {
+                    console.log('[Home] WebSocket disconnected');
+                    updateStatus('disconnected');
+
+                    // 尝试重连
+                    setTimeout(connectToHomeWebSocket, 3000);
+                };
+
+                homeWs.onerror = function(error) {
+                    console.error('[Home] WebSocket error:', error);
+                    updateStatus('error');
+                };
+            } catch (e) {
+                console.error('[Home] Failed to create WebSocket connection:', e);
+                updateStatus('error');
+            }
+        }
+
+        function handleHomeMessage(data) {
+            const { event, payload } = data;
+
+            switch (event) {
+                case 'backendAppend':
+                    handleBackendAppend(payload);
+                    break;
+                case 'backendRemove':
+                    handleBackendRemove(payload);
+                    break;
+                default:
+                    console.log('[Home] Unknown event:', event, payload);
+            }
+        }
+
+        function handleBackendAppend(backendData) {
+            console.log('[Home] Backend connected:', backendData);
+
+            // 检查是否已经存在
+            const existingIndex = backends.findIndex(b => b.id === backendData.id);
+            if (existingIndex >= 0) {
+                // 更新现有数据
+                backends[existingIndex] = backendData;
+            } else {
+                // 添加新的后端
+                backends.unshift(backendData);
+            }
+
+            updateBackendsList(backends);
+        }
+
+        function handleBackendRemove(removeData) {
+            console.log('[Home] Backend disconnected:', removeData);
+
+            // 延迟删除（模拟原始行为）
+            setTimeout(() => {
+                const index = backends.findIndex(b => b.id === removeData.id);
+                if (index >= 0) {
+                    backends.splice(index, 1);
+                    updateBackendsList(backends);
+                }
+            }, 1000);
+        }
+
+        function updateStatus(status) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status ' + status;
+            statusEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+
+        function updateBackendsList(backendList) {
+            const listEl = document.getElementById('targetsList');
+            if (backendList.length === 0) {
+                listEl.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <div>No debugging targets detected</div>
+                        <div style="margin-top: 10px; font-size: 14px;">
+                            Make sure to add the backend script to your page
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            listEl.innerHTML = backendList.map(backend => `
+                <div class="target-item">
+                    <div class="target-icon">${backend.favicon ? '<img src="' + backend.favicon + '" style="width:100%;height:100%;border-radius:4px;">' : '🌐'}</div>
+                    <div class="target-info">
+                        <div class="target-title">${backend.title || 'Untitled Page'}</div>
+                        <div class="target-url">${backend.url || ''}</div>
+                        <div style="font-size: 12px; color: #888; margin-top: 4px;">
+                            ID: ${backend.id} ${backend.alive ? '• 🟢 Active' : '• 🔴 Inactive'}
+                        </div>
+                    </div>
+                    <div class="target-actions">
+                        <a href="javascript:void(0)" onclick="openChromeDevtools('${backend.id}')" class="btn btn-primary">
+                            🔧 Chrome DevTools
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openChromeDevtools(id) {
+            if (typeof __config__ !== 'undefined') {
+                const chiipath = `${location.protocol}//${location.host}/chii/chii_app.html`;
+                const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+                const url = `${chiipath}?${protocol}=${__config__.wsHost}:${__config__.wsPort}/frontend/chii/${id}`;
+                window.open(url, 'Chrome DevTools');
+            }
+        }
+
+        // 页面卸载时关闭 WebSocket
+        window.addEventListener('beforeunload', function() {
+            if (homeWs) {
+                homeWs.close();
+            }
+        });
+    </script>
+</body>
+</html>
