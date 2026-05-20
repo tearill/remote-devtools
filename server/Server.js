@@ -79,7 +79,8 @@ module.exports = class Server {
                 const serverConfig = {
                     ...this.options.https,
                     serverAddress: this.getAddress(),
-                    hostname: this.hostname
+                    hostname: this.hostname,
+                    certDir: this.options.certDir  // 由调用方（Electron main.js）提供可写路径
                 };
                 fakeCert = getCertificate(logger, serverConfig);
             }

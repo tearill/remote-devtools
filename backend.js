@@ -78,7 +78,7 @@
 
     // 获取当前脚本的 src 地址
     function getCurrentScriptSource() {
-        // `document.currentScript` 是获取当前脚本最准确的方式
+        // document.currentScript 是获取当前脚本最准确的方式
         if (document.currentScript) {
             return document.currentScript.getAttribute('src');
         }

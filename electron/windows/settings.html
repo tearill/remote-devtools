@@ -1,0 +1,1679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Remote DevTools - Settings</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      width: 500px;
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .card-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      padding: 28px 32px 22px;
+      text-align: center;
+    }
+    .card-header h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+    .card-header p { font-size: 13px; opacity: 0.85; }
+    .doc-link-row {
+      margin-top: 10px;
+    }
+    .doc-link-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      color: #fff;
+      background: rgba(255, 255, 255, 0.14);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .doc-link-btn:hover {
+      background: rgba(255, 255, 255, 0.22);
+      border-color: rgba(255, 255, 255, 0.6);
+    }
+    .card-body { padding: 28px 32px; }
+
+    .form-group { margin-bottom: 20px; }
+    .form-row { display: flex; gap: 16px; }
+    .form-row .form-group { flex: 1; }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 6px;
+    }
+    input[type="number"],
+    input[type="text"] {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #333;
+      background: #fafbfc;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    input:focus {
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.12);
+    }
+
+    /* Toggle switch */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-top: 1px solid #f0f0f0;
+      border-bottom: 1px solid #f0f0f0;
+      margin-bottom: 20px;
+    }
+    .toggle-label { font-size: 14px; font-weight: 500; }
+    .toggle-desc { font-size: 12px; color: #888; margin-top: 2px; }
+    .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: #ccc; border-radius: 24px; transition: 0.25s;
+    }
+    .slider::before {
+      content: ""; position: absolute; width: 18px; height: 18px;
+      left: 3px; bottom: 3px; background: #fff;
+      border-radius: 50%; transition: 0.25s;
+    }
+    .switch input:checked + .slider { background: #667eea; }
+    .switch input:checked + .slider::before { transform: translateX(20px); }
+
+    /* Cert section */
+    .cert-section { display: none; animation: fadeIn 0.2s ease; }
+    .cert-section.visible { display: block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .ip-display {
+      padding: 9px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #333;
+      background: #eef0f3;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      user-select: all;
+      cursor: not-allowed;
+    }
+    .error-msg {
+      color: #e74c3c;
+      font-size: 12px;
+      margin-top: 4px;
+      display: none;
+    }
+    .error-msg.visible { display: block; }
+
+    /* ── HTTPS Setup ── */
+    .setup-section {
+      background: #f8f9fb;
+      border: 1px solid #e8eaef;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .setup-section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .required-mark { color: #ef4444; font-weight: 700; margin-right: 2px; }
+
+    /* mkcert 状态指示器 */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid #e8eaef;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-dot.success { background: #22c55e; }
+    .status-dot.error { background: #ef4444; }
+    .status-dot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .status-text { font-size: 13px; color: #333; flex: 1; }
+    .status-sub { font-size: 11px; color: #888; margin-top: 2px; }
+
+    /* 安装命令块 */
+    .cmd-block {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 12px;
+      margin: 8px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      word-break: break-all;
+    }
+    .cmd-block code { flex: 1; line-height: 1.5; }
+    .btn-copy {
+      padding: 4px 10px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 4px;
+      color: #e2e8f0;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .btn-copy:hover { background: rgba(255,255,255,0.2); }
+
+    /* 域名标签 */
+    .domain-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0;
+    }
+    .domain-tag {
+      padding: 3px 10px;
+      background: #e8eaef;
+      border-radius: 12px;
+      font-size: 12px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      color: #555;
+    }
+
+    /* 证书就绪状态 */
+    .cert-ready {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 6px;
+    }
+    .cert-ready .badge {
+      background: #22c55e;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .cert-paths {
+      font-size: 12px;
+      color: #555;
+      line-height: 1.7;
+      word-break: break-all;
+    }
+    .cert-paths code {
+      background: rgba(0,0,0,0.05);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+
+    /* 可折叠面板 */
+    details {
+      margin-bottom: 12px;
+      border: 1px solid #e8eaef;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    details summary {
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #555;
+      cursor: pointer;
+      background: #f8f9fb;
+      user-select: none;
+      transition: background 0.15s;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    details summary:hover { background: #f0f2f5; }
+    details > summary::before {
+      content: "▶";
+      font-size: 10px;
+      color: #999;
+      transition: transform 0.25s ease;
+      flex-shrink: 0;
+    }
+    details[open] > summary::before { transform: rotate(90deg); }
+    details .detail-body {
+      padding: 14px;
+      overflow: hidden;
+    }
+
+    /* 步骤列表 */
+    .step-list {
+      padding-left: 0;
+      list-style: none;
+      counter-reset: steps;
+    }
+    .step-list li {
+      counter-increment: steps;
+      padding: 6px 0 6px 28px;
+      font-size: 13px;
+      color: #555;
+      position: relative;
+      line-height: 1.5;
+    }
+    .step-list li::before {
+      content: counter(steps);
+      position: absolute;
+      left: 0;
+      top: 6px;
+      width: 20px;
+      height: 20px;
+      background: #667eea;
+      color: #fff;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Root CA 信息 */
+    .rootca-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #fff;
+      border: 1px solid #e8eaef;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+    .rootca-row code {
+      flex: 1;
+      font-size: 11px;
+      color: #555;
+      word-break: break-all;
+    }
+
+    /* 警告横幅 */
+    .warning-banner {
+      background: #fef3cd;
+      border: 1px solid #ffc107;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #856404;
+      line-height: 1.5;
+    }
+
+    /* FAQ */
+    .faq-item { margin-bottom: 12px; }
+    .faq-item:last-child { margin-bottom: 0; }
+    .faq-q {
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 4px;
+    }
+    .faq-a { font-size: 12px; color: #666; line-height: 1.6; }
+
+    /* 平台选项卡 */
+    .platform-tabs {
+      display: flex;
+      border-bottom: 1px solid #e8eaef;
+      margin-bottom: 12px;
+    }
+    .platform-tab {
+      padding: 8px 16px;
+      font-size: 13px;
+      color: #888;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+    }
+    .platform-tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+      font-weight: 500;
+    }
+    .platform-content { display: none; }
+    .platform-content.active { display: block; }
+
+    /* 手动证书 */
+    .file-input-row { display: flex; gap: 8px; align-items: center; }
+    .file-input-row input { flex: 1; }
+    .btn-browse {
+      padding: 9px 14px;
+      background: #e9ecef;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      color: #555;
+      transition: background 0.15s;
+    }
+    .btn-browse:hover { background: #dee2e6; }
+
+    .hint { font-size: 12px; color: #888; margin-top: 6px; line-height: 1.5; }
+
+    /* 手机端证书确认 */
+    .mobile-confirm-row { margin-top: 14px; }
+    .mobile-confirmed-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      padding: 8px 12px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 6px;
+    }
+
+    /* 按钮 */
+    .card-footer {
+      padding: 0 32px 28px;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+    .version-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 32px;
+      border-top: 1px solid #f0f0f0;
+      background: #fafbfc;
+      border-radius: 0 0 12px 12px;
+    }
+    .version-bar .version-text {
+      font-size: 12px;
+      color: #bbb;
+    }
+    .version-bar .version-link {
+      font-size: 12px;
+      color: #667eea;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: none;
+    }
+    .version-bar .version-link:hover {
+      text-decoration: underline;
+    }
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+    .btn-primary:disabled {
+      background: #b0b0b0;
+      cursor: not-allowed;
+      opacity: 1;
+      transform: none;
+    }
+    .btn-secondary { background: #e9ecef; color: #555; }
+    .btn-secondary:hover { background: #dee2e6; }
+    .btn-sm { padding: 6px 14px; font-size: 12px; }
+    .btn-outline {
+      padding: 6px 14px;
+      background: transparent;
+      border: 1px solid #667eea;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #667eea;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-outline:hover { background: #667eea; color: #fff; }
+    .btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-refresh {
+      width: 28px;
+      height: 28px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background: #fff;
+      color: #667eea;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .btn-refresh:hover { background: #f0f2f5; border-color: #667eea; }
+    .btn-refresh.spinning { animation: spin 0.6s linear; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .start-hint {
+      font-size: 11px;
+      color: #f59e0b;
+      width: 100%;
+      text-align: right;
+      display: none;
+      margin-bottom: -4px;
+    }
+    .start-hint.visible { display: block; }
+    .mt-8 { margin-top: 8px; }
+    .mt-12 { margin-top: 12px; }
+    .mb-8 { margin-bottom: 8px; }
+
+    /* 代理信息 */
+    .proxy-info-box {
+      background: #f0f4ff;
+      border: 1px solid #c7d2fe;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .proxy-info-box code { flex: 1; color: #4338ca; font-weight: 500; }
+    .proxy-info-box .btn-copy {
+      background: rgba(67,56,202,0.08);
+      border-color: rgba(67,56,202,0.2);
+      color: #4338ca;
+    }
+    .proxy-info-box .btn-copy:hover { background: rgba(67,56,202,0.15); }
+
+    /* ── 统一配置面板 ── */
+    .config-group {
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .config-group-title {
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      background: #f8f9fb;
+      border-bottom: 1px solid #e8eaef;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    details.config-group { margin-bottom: 16px; border-radius: 8px; }
+    details.config-group > summary {
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      background: #f8f9fb;
+    }
+    details.config-group[open] > summary { border-bottom: 1px solid #e8eaef; }
+    .config-group-body { padding: 16px; }
+    .config-item + .config-item {
+      border-top: 1px solid #f0f0f0;
+      padding-top: 14px;
+      margin-top: 14px;
+    }
+    .config-item-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* 二维码区域 */
+    .qrcode-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px;
+      margin: 10px 0;
+      background: #fff;
+      border: 1px solid #e8eaef;
+      border-radius: 8px;
+    }
+    .qrcode-box img {
+      width: 160px;
+      height: 160px;
+      image-rendering: pixelated;
+    }
+    .qrcode-box .qrcode-hint {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #888;
+    }
+
+    /* 面板内部元素轻量化 */
+    .config-group-body .setup-section {
+      background: none;
+      border: none;
+      padding: 0;
+      margin-bottom: 0;
+    }
+    .config-group-body .toggle-row {
+      border: none;
+      padding: 4px 0;
+      margin-bottom: 0;
+    }
+    .config-group-body .cert-section { animation: none; }
+    .config-group-body .cert-section.visible {
+      padding-top: 14px;
+      margin-top: 14px;
+      border-top: 1px solid #f0f0f0;
+    }
+    .config-group-body .cert-section > * + * {
+      border-top: 1px solid #f0f0f0;
+      padding-top: 14px;
+      margin-top: 14px;
+    }
+    .config-group-body details {
+      border: none;
+      border-radius: 0;
+      margin-bottom: 0;
+    }
+    .config-group-body details > summary {
+      background: none;
+      padding: 10px 0;
+    }
+    .config-group-body details .detail-body {
+      padding: 4px 0 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-header">
+      <h1>Remote DevTools</h1>
+      <p>Configure server settings before starting</p>
+      <div class="doc-link-row">
+        <button class="doc-link-btn" onclick="openUsageDoc()">
+          使用文档
+        </button>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="port">Port</label>
+          <input type="number" id="port" min="1" max="65535" value="8899" placeholder="8899">
+          <div class="error-msg" id="portError">端口号范围为 1 - 65535</div>
+        </div>
+        <div class="form-group">
+          <label>Local IP Address</label>
+          <div class="ip-display" id="ipDisplay">Detecting...</div>
+        </div>
+      </div>
+
+      <!-- Whistle 代理 -->
+      <details class="config-group" id="whistleConfigGroup" open>
+        <summary>
+          Whistle 代理
+          <button class="btn-refresh" onclick="event.stopPropagation(); refreshWhistleInfo()" title="刷新代理状态">↻</button>
+        </summary>
+        <div class="config-group-body">
+          <div class="config-item" id="whistleStatusSection">
+            <div class="status-row" id="whistleStatusRow">
+              <div class="status-dot loading" id="whistleDot"></div>
+              <div style="flex:1">
+                <div class="status-text" id="whistleStatusText">检测中...</div>
+                <div class="status-sub" id="whistlePortText"></div>
+              </div>
+              <button class="btn btn-sm btn-outline" id="btnOpenWhistlePanel" style="display:none" onclick="openWhistlePanel()">打开面板</button>
+            </div>
+          </div>
+
+          <div class="config-item" id="proxySetupSection" style="display:none">
+            <details open>
+              <summary><span class="required-mark">*</span>手机端配置代理</summary>
+              <div class="detail-body">
+                <div class="warning-banner">手机必须配置 HTTP 代理，才能通过 Whistle 拦截和调试网络请求</div>
+                <p class="hint mb-8" style="margin-top:10px">确保手机和电脑在同一 Wi-Fi 网络下，然后在手机 Wi-Fi 设置中配置 HTTP 代理：</p>
+
+                <div class="proxy-info-box mb-8">
+                  <code id="proxyAddressText">-</code>
+                  <button class="btn-copy" onclick="copyProxyAddress()">复制</button>
+                </div>
+
+                <div class="platform-tabs">
+                  <button class="platform-tab active" onclick="switchProxyPlatform(this, 'ios')">iOS</button>
+                  <button class="platform-tab" onclick="switchProxyPlatform(this, 'android')">Android</button>
+                </div>
+                <div class="platform-content active" id="proxy-ios">
+                  <ol class="step-list">
+                    <li>前往 <strong>设置 → Wi-Fi</strong>，点击当前连接的 Wi-Fi 名称</li>
+                    <li>滚动到底部，点击 <strong>配置代理 → 手动</strong></li>
+                    <li>填写服务器地址和端口（见上方）</li>
+                    <li>点击「存储」保存设置</li>
+                  </ol>
+                </div>
+                <div class="platform-content" id="proxy-android">
+                  <ol class="step-list">
+                    <li>前往 <strong>设置 → WLAN</strong>，长按当前连接的 Wi-Fi</li>
+                    <li>选择 <strong>修改网络 → 高级选项</strong></li>
+                    <li>将代理设置为 <strong>手动</strong>，填写主机名和端口（见上方）</li>
+                    <li>保存设置</li>
+                  </ol>
+                </div>
+
+                <div class="mobile-confirm-row" id="proxyConfigConfirmRow">
+                  <button class="btn btn-primary btn-sm" onclick="confirmProxyConfig()">我已完成配置</button>
+                </div>
+                <div class="mobile-confirmed-row" id="proxyConfigConfirmedRow" style="display:none">
+                  <div class="status-dot success"></div>
+                  <span class="status-text">已确认完成手机端代理配置</span>
+                  <button class="btn-outline btn-sm" onclick="resetProxyConfig()">重置</button>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div class="config-item" id="whistleCertSection" style="display:none">
+            <details open>
+              <summary><span class="required-mark">*</span>手机端安装代理证书</summary>
+              <div class="detail-body">
+                <div class="warning-banner">必须在手机上安装 Whistle 根证书，HTTPS 请求才能被代理正确拦截</div>
+                <p class="hint mb-8" style="margin-top:10px">确保手机已配置好代理（上一步），用手机扫描下方二维码下载证书：</p>
+
+                <div class="qrcode-box" id="whistleCertQRBox">
+                  <img id="whistleCertQR" src="" alt="证书下载二维码" />
+                  <div class="qrcode-hint">使用手机相机或浏览器扫码</div>
+                </div>
+
+                <div class="proxy-info-box mb-8">
+                  <code id="whistleCertUrl">-</code>
+                  <button class="btn-copy" onclick="copyWhistleCertUrl()">复制</button>
+                </div>
+
+                <div class="platform-tabs">
+                  <button class="platform-tab active" onclick="switchWhistleCertPlatform(this, 'ios')">iOS</button>
+                  <button class="platform-tab" onclick="switchWhistleCertPlatform(this, 'android')">Android</button>
+                </div>
+                <div class="platform-content active" id="wcert-ios">
+                  <ol class="step-list">
+                    <li>用手机扫描上方二维码，在 Safari 中打开并下载证书</li>
+                    <li>前往 <strong>设置 → 通用 → VPN 与设备管理</strong>，安装该描述文件</li>
+                    <li>前往 <strong>设置 → 通用 → 关于本机 → 证书信任设置</strong></li>
+                    <li>开启对该根证书的「完全信任」</li>
+                  </ol>
+                </div>
+                <div class="platform-content" id="wcert-android">
+                  <ol class="step-list">
+                    <li>用手机扫描上方二维码，在浏览器中打开并下载证书</li>
+                    <li>前往 <strong>设置 → 安全 → 加密与凭据</strong></li>
+                    <li>点击 <strong>安装证书 → CA 证书</strong></li>
+                    <li>选择下载的证书文件并确认安装</li>
+                  </ol>
+                </div>
+
+                <div class="mobile-confirm-row" id="proxyCertConfirmRow">
+                  <button class="btn btn-primary btn-sm" onclick="confirmProxyCert()">我已完成安装</button>
+                </div>
+                <div class="mobile-confirmed-row" id="proxyCertConfirmedRow" style="display:none">
+                  <div class="status-dot success"></div>
+                  <span class="status-text">已确认完成代理证书安装</span>
+                  <button class="btn-outline btn-sm" onclick="resetProxyCert()">重置</button>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+      </details>
+
+      <!-- HTTPS 配置 -->
+      <details class="config-group" id="httpsConfigGroup" open>
+        <summary>HTTPS 配置（可选）</summary>
+        <div class="config-group-body">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Enable HTTPS</div>
+              <div class="toggle-desc">Use secure WebSocket (WSS) connections</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="https">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="cert-section" id="certSection">
+
+        <!-- mkcert 状态检测 -->
+        <div class="setup-section" id="mkcertStatusSection">
+          <div class="setup-section-title"><span class="required-mark">*</span>mkcert 状态</div>
+          <div class="status-row" id="mkcertStatusRow">
+            <div class="status-dot loading" id="mkcertDot"></div>
+            <div style="flex:1">
+              <div class="status-text" id="mkcertStatusText">检测中...</div>
+              <div class="status-sub" id="mkcertVersionText"></div>
+            </div>
+            <button class="btn-refresh" onclick="checkMkcert()" title="刷新检测状态">↻</button>
+          </div>
+
+          <!-- mkcert 未安装时的引导 -->
+          <div id="mkcertInstallGuide" style="display:none" class="mt-12">
+            <p class="hint mb-8">启用 HTTPS 需要先安装 mkcert 用于生成本地受信任的证书，请先完成安装：</p>
+
+            <div class="platform-tabs">
+              <button class="platform-tab active" onclick="switchInstallPlatform(this, 'macos')">macOS</button>
+              <button class="platform-tab" onclick="switchInstallPlatform(this, 'windows')">Windows</button>
+              <button class="platform-tab" onclick="switchInstallPlatform(this, 'linux')">Linux</button>
+            </div>
+            <div class="platform-content active" id="install-macos">
+              <div class="cmd-block">
+                <code>brew install mkcert && mkcert -install</code>
+                <button class="btn-copy" onclick="copyText('brew install mkcert && mkcert -install')">复制</button>
+              </div>
+            </div>
+            <div class="platform-content" id="install-windows">
+              <div class="cmd-block">
+                <code>choco install mkcert</code>
+                <button class="btn-copy" onclick="copyText('choco install mkcert')">复制</button>
+              </div>
+              <p class="hint mt-8">或使用 scoop：<code style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:3px">scoop install mkcert</code></p>
+            </div>
+            <div class="platform-content" id="install-linux">
+              <div class="cmd-block">
+                <code>sudo apt install libnss3-tools && brew install mkcert && mkcert -install</code>
+                <button class="btn-copy" onclick="copyText('sudo apt install libnss3-tools && brew install mkcert && mkcert -install')">复制</button>
+              </div>
+            </div>
+
+            <button class="btn-outline mt-12" onclick="checkMkcert()">重新检测</button>
+          </div>
+        </div>
+
+        <!-- 电脑端根证书安装 -->
+        <div class="setup-section" id="computerCASection" style="display:none">
+          <div class="setup-section-title"><span class="required-mark">*</span>电脑端根证书</div>
+          <div class="status-row" id="computerCAStatusRow">
+            <div class="status-dot" id="computerCADot"></div>
+            <div style="flex:1">
+              <div class="status-text" id="computerCAText">-</div>
+              <div class="status-sub" id="computerCASub"></div>
+            </div>
+            <button class="btn-outline btn-sm" id="installCABtn" onclick="installSystemCA()">安装到系统</button>
+          </div>
+          <p class="hint mt-8">首次使用需要将根证书安装到系统信任存储，浏览器才能信任本地 HTTPS 证书</p>
+        </div>
+
+        <!-- 证书生成（暂时注释）
+        <div class="setup-section" id="certSetupSection" style="display:none">
+          <div class="setup-section-title">HTTPS 证书</div>
+          <div id="certNotReady">
+            <p class="hint mb-8">为以下域名生成受信任的证书：</p>
+            <div class="domain-tags" id="domainTags"></div>
+            <button class="btn btn-primary btn-sm mt-8" id="generateCertBtn" onclick="generateCert()">
+              一键生成
+            </button>
+            <div class="error-msg mt-8" id="certError"></div>
+          </div>
+          <div id="certReady" style="display:none">
+            <div class="cert-ready">
+              <span class="badge">已就绪</span>
+              <div class="cert-paths">
+                <div>cert: <code id="certPathDisplay"></code></div>
+                <div>key: <code id="keyPathDisplay"></code></div>
+              </div>
+            </div>
+            <button class="btn-outline mt-8" onclick="regenerateCert()">重新生成</button>
+          </div>
+        </div>
+        -->
+
+        <!-- 手机端安装根证书引导 -->
+        <div id="mobileSetupSection" style="display:none">
+          <details open>
+            <summary><span class="required-mark">*</span>手机端安装根证书</summary>
+            <div class="detail-body">
+              <div class="warning-banner">必须在手机上安装根证书，否则手机浏览器将无法信任本地 HTTPS 证书</div>
+              <p class="hint mb-8" style="margin-top:10px">确保手机已配置好 Whistle 代理，用手机扫描下方二维码下载根证书：</p>
+
+              <div class="qrcode-box" id="mkcertQRBox" style="display:none">
+                <img id="mkcertQR" src="" alt="根证书下载二维码" />
+                <div class="qrcode-hint">使用手机相机或浏览器扫码（需先配置 Whistle 代理）</div>
+              </div>
+
+              <div class="proxy-info-box mb-8" id="mkcertDownloadUrlBox" style="display:none">
+                <code id="mkcertDownloadUrl">-</code>
+                <button class="btn-copy" onclick="copyMkcertDownloadUrl()">复制</button>
+              </div>
+
+              <div class="rootca-row">
+                <code id="rootCAPathText">-</code>
+                <button class="btn-outline" id="revealCABtn" onclick="revealRootCA()">在 Finder 中打开</button>
+              </div>
+
+              <div class="platform-tabs">
+                <button class="platform-tab active" onclick="switchMobilePlatform(this, 'ios')">iOS</button>
+                <button class="platform-tab" onclick="switchMobilePlatform(this, 'android')">Android</button>
+              </div>
+
+              <div class="platform-content active" id="mobile-ios">
+                <ol class="step-list">
+                  <li>用手机扫描上方二维码，在 Safari 中打开并下载证书</li>
+                  <li>前往 <strong>设置 → 通用 → VPN 与设备管理</strong>，安装该描述文件</li>
+                  <li>前往 <strong>设置 → 通用 → 关于本机 → 证书信任设置</strong></li>
+                  <li>开启对该根证书的「完全信任」</li>
+                </ol>
+              </div>
+
+              <div class="platform-content" id="mobile-android">
+                <ol class="step-list">
+                  <li>用手机扫描上方二维码，在浏览器中打开并下载证书</li>
+                  <li>前往 <strong>设置 → 安全 → 加密与凭据</strong></li>
+                  <li>点击 <strong>安装证书 → CA 证书</strong></li>
+                  <li>选择下载的证书文件并确认安装</li>
+                </ol>
+              </div>
+
+              <div class="mobile-confirm-row" id="mobileConfirmRow">
+                <button class="btn btn-primary btn-sm" id="mobileConfirmBtn" onclick="confirmMobileCA()">
+                  我已完成安装
+                </button>
+              </div>
+              <div class="mobile-confirmed-row" id="mobileConfirmedRow" style="display:none">
+                <div class="status-dot success"></div>
+                <span class="status-text">已确认完成手机端根证书安装</span>
+                <button class="btn-outline btn-sm" onclick="resetMobileCA()">重置</button>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <!-- 手动证书 (可选) -->
+        <details id="manualCertDetails">
+          <summary>手动指定证书（可选）</summary>
+          <div class="detail-body">
+            <p class="hint mb-8">如果你有自己的 SSL 证书，可以在此指定。留空则使用 mkcert 自动生成。</p>
+            <div class="form-group">
+              <label for="cert">SSL 证书 (PEM)</label>
+              <div class="file-input-row">
+                <input type="text" id="cert" placeholder="点击浏览选择证书文件..." readonly>
+                <button class="btn-browse" onclick="browseCert()">浏览</button>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label for="key">SSL 私钥 (PEM)</label>
+              <div class="file-input-row">
+                <input type="text" id="key" placeholder="点击浏览选择私钥文件..." readonly>
+                <button class="btn-browse" onclick="browseKey()">浏览</button>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <!-- FAQ -->
+        <details id="faqDetails">
+          <summary>常见问题</summary>
+          <div class="detail-body">
+            <div class="faq-item">
+              <div class="faq-q">Q：电脑浏览器仍然显示「不安全」警告？</div>
+              <div class="faq-a">请确认已执行 <code>mkcert -install</code> 将根证书安装到系统信任存储中，然后点击「重新生成」证书并重启服务。</div>
+            </div>
+            <div class="faq-item">
+              <div class="faq-q">Q：手机无法访问 HTTPS 页面？</div>
+              <div class="faq-a">请检查：1) 手机和电脑是否在同一网络下；2) rootCA.pem 是否已安装并信任；3) 证书是否覆盖了当前电脑的 IP 地址。</div>
+            </div>
+            <div class="faq-item">
+              <div class="faq-q">Q：证书过期了怎么办？</div>
+              <div class="faq-a">mkcert 生成的证书有效期约 2 年，点击「重新生成」即可创建新证书。</div>
+            </div>
+            <div class="faq-item">
+              <div class="faq-q">Q：可以使用自己的证书吗？</div>
+              <div class="faq-a">可以，展开上方「手动指定证书（可选）」面板，指定自定义的证书和私钥文件路径即可。</div>
+            </div>
+          </div>
+            </details>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="card-footer">
+      <div class="start-hint" id="startHint"></div>
+      <button class="btn btn-secondary" onclick="resetDefaults()">Reset</button>
+      <button class="btn btn-primary" id="startBtn" onclick="startServer()">Start Server</button>
+    </div>
+    <div class="version-bar">
+      <span class="version-text" id="appVersionText">v--</span>
+      <button class="version-link" onclick="openDownloadPage()">查看最新版本 →</button>
+    </div>
+  </div>
+
+  <script>
+    const httpsToggle = document.getElementById('https');
+    const certSection = document.getElementById('certSection');
+
+    let localIP = '127.0.0.1';
+    let mkcertInstalled = false;
+    let mobileCAConfirmed = false;
+    let rootCAPath = '';
+    let generatedCert = '';
+    let generatedKey = '';
+
+    // whistle 代理相关
+    let whistleRunning = false;
+    let whistlePort = null;
+    let whistleCertDownloadUrl = '';
+    let proxyConfigConfirmed = false;
+    let proxyCertConfirmed = false;
+
+    httpsToggle.addEventListener('change', () => {
+      const checked = httpsToggle.checked;
+      certSection.classList.toggle('visible', checked);
+      if (checked) {
+        checkMkcert();
+      }
+      updateStartButton();
+      // 点击时立即持久化，无需等到 Start Server
+      if (window.settingsAPI) {
+        window.settingsAPI.savePartialConfig({ https: checked });
+      }
+    });
+
+    // 窗口聚焦时自动重检 mkcert（用户可能在终端安装/卸载了）
+    window.addEventListener('focus', () => {
+      if (httpsToggle.checked) {
+        checkMkcert();
+      }
+    });
+
+    // 加载已保存的配置
+    window.addEventListener('DOMContentLoaded', async () => {
+      if (!window.settingsAPI) return;
+
+      // 填充版本号
+      const version = await window.settingsAPI.getAppVersion();
+      if (version) {
+        document.getElementById('appVersionText').textContent = `v${version}`;
+      }
+
+      const config = await window.settingsAPI.loadConfig();
+      if (config) {
+        localIP = config._localIP || '127.0.0.1';
+        document.getElementById('ipDisplay').textContent = localIP;
+        document.getElementById('port').value = config.port || 8899;
+
+        // 恢复 HTTPS 选择状态
+        if (config.https) {
+          httpsToggle.checked = true;
+          certSection.classList.add('visible');
+          // 恢复证书路径：自动生成的证书存入变量，手动选择的填入输入框
+          if (config._certAutoGenerated) {
+            generatedCert = config.cert || '';
+            generatedKey = config.key || '';
+          } else {
+            if (config.cert) document.getElementById('cert').value = config.cert;
+            if (config.key) document.getElementById('key').value = config.key;
+          }
+          // 触发 mkcert 检测（checkMkcert 用 setTimeout 确保 DOM 已完整渲染）
+          setTimeout(() => checkMkcert(), 0);
+        }
+
+        mobileCAConfirmed = !!config._mobileCAConfirmed;
+
+        // 恢复 whistle 代理确认状态
+        proxyConfigConfirmed = !!config._proxyConfigConfirmed;
+        proxyCertConfirmed = !!config._proxyCertConfirmed;
+        syncProxyConfigUI();
+        syncProxyCertUI();
+      }
+
+      // 加载 whistle 代理状态
+      refreshWhistleInfo();
+      updateStartButton();
+    });
+
+    // ── mkcert 检测 ──
+
+    async function checkMkcert() {
+      const dot = document.getElementById('mkcertDot');
+      const text = document.getElementById('mkcertStatusText');
+      const sub = document.getElementById('mkcertVersionText');
+      const guide = document.getElementById('mkcertInstallGuide');
+      // const certSetup = document.getElementById('certSetupSection'); // 证书生成暂时注释
+      const mobileSetup = document.getElementById('mobileSetupSection');
+      const refreshBtn = document.querySelector('#mkcertStatusSection .btn-refresh');
+
+      dot.className = 'status-dot loading';
+      text.textContent = '检测中...';
+      sub.textContent = '';
+
+      // 刷新按钮旋转动画
+      if (refreshBtn) {
+        refreshBtn.classList.remove('spinning');
+        void refreshBtn.offsetWidth;
+        refreshBtn.classList.add('spinning');
+      }
+
+      if (!window.settingsAPI) {
+        return;
+      }
+
+      const result = await window.settingsAPI.checkMkcert();
+
+      const computerCA = document.getElementById('computerCASection');
+
+      if (result.installed) {
+        mkcertInstalled = true;
+        dot.className = 'status-dot success';
+        text.textContent = 'mkcert 已安装';
+        sub.textContent = result.version || '';
+        guide.style.display = 'none';
+
+        // 检测电脑端根证书
+        const caInfo = await window.settingsAPI.getMkcertCARoot();
+        if (caInfo.exists) {
+          rootCAPath = caInfo.rootCAPath;
+          document.getElementById('computerCADot').className = 'status-dot success';
+          document.getElementById('computerCAText').textContent = '根证书已创建';
+          document.getElementById('computerCASub').textContent = caInfo.rootCAPath;
+          document.getElementById('installCABtn').textContent = '重新安装';
+          document.getElementById('rootCAPathText').textContent = caInfo.rootCAPath;
+          mobileSetup.style.display = '';
+          syncMobileCAUI();
+          setupMkcertQR();
+        } else {
+          document.getElementById('computerCADot').className = 'status-dot error';
+          document.getElementById('computerCAText').textContent = '根证书未安装';
+          document.getElementById('computerCASub').textContent = '';
+          document.getElementById('installCABtn').textContent = '安装到系统';
+          mobileSetup.style.display = 'none';
+        }
+        computerCA.style.display = '';
+
+        /* 证书生成暂时注释
+        certSetup.style.display = '';
+        buildDomainTags();
+        if (generatedCert && generatedKey) {
+          showCertReady(generatedCert, generatedKey);
+        }
+        */
+      } else {
+        mkcertInstalled = false;
+        mobileCAConfirmed = false;
+        syncMobileCAUI();
+        generatedCert = '';
+        generatedKey = '';
+        dot.className = 'status-dot error';
+        text.textContent = 'mkcert 未安装';
+        sub.textContent = '';
+        guide.style.display = '';
+        computerCA.style.display = 'none';
+        // certSetup.style.display = 'none'; // 证书生成暂时注释
+        mobileSetup.style.display = 'none';
+      }
+
+      updateStartButton();
+    }
+
+    function buildDomainTags() {
+      const container = document.getElementById('domainTags');
+      const domains = getDomains();
+      container.innerHTML = domains
+        .map((d) => `<span class="domain-tag">${d}</span>`)
+        .join('');
+    }
+
+    function getDomains() {
+      const domains = [localIP, 'localhost', '127.0.0.1'];
+      // 去重
+      return [...new Set(domains)];
+    }
+
+    /* 证书生成暂时注释
+    async function generateCert() {
+      if (!window.settingsAPI) return;
+      const btn = document.getElementById('generateCertBtn');
+      const errEl = document.getElementById('certError');
+      errEl.classList.remove('visible');
+      btn.disabled = true;
+      btn.textContent = '生成中...';
+      const domains = getDomains();
+      const result = await window.settingsAPI.generateCert(domains);
+      if (result.success) {
+        generatedCert = result.certFile;
+        generatedKey = result.keyFile;
+        showCertReady(result.certFile, result.keyFile);
+      } else {
+        errEl.textContent = '生成失败：' + (result.error || '未知错误');
+        errEl.classList.add('visible');
+      }
+      btn.disabled = false;
+      btn.textContent = '一键生成';
+    }
+
+    function regenerateCert() {
+      document.getElementById('certReady').style.display = 'none';
+      document.getElementById('certNotReady').style.display = '';
+      generateCert();
+    }
+
+    function showCertReady(certPath, keyPath) {
+      document.getElementById('certNotReady').style.display = 'none';
+      document.getElementById('certReady').style.display = '';
+      document.getElementById('certPathDisplay').textContent = certPath;
+      document.getElementById('keyPathDisplay').textContent = keyPath;
+      updateStartButton();
+    }
+    */
+
+    // ── 手机端证书确认 ──
+
+    function syncMobileCAUI() {
+      document.getElementById('mobileConfirmRow').style.display = mobileCAConfirmed ? 'none' : '';
+      document.getElementById('mobileConfirmedRow').style.display = mobileCAConfirmed ? '' : 'none';
+    }
+
+    function confirmMobileCA() {
+      mobileCAConfirmed = true;
+      syncMobileCAUI();
+      updateStartButton();
+    }
+
+    function resetMobileCA() {
+      mobileCAConfirmed = false;
+      syncMobileCAUI();
+      updateStartButton();
+    }
+
+    // ── 电脑端根证书安装 ──
+
+    async function installSystemCA() {
+      if (!window.settingsAPI) return;
+      const btn = document.getElementById('installCABtn');
+      const dot = document.getElementById('computerCADot');
+      const text = document.getElementById('computerCAText');
+      btn.disabled = true;
+      btn.textContent = '安装中...';
+
+      const result = await window.settingsAPI.installCA();
+      if (result.success) {
+        dot.className = 'status-dot success';
+        text.textContent = '根证书已安装到系统信任存储';
+        btn.textContent = '已安装';
+        // 刷新根证书路径信息
+        const caInfo = await window.settingsAPI.getMkcertCARoot();
+        if (caInfo.exists) {
+          rootCAPath = caInfo.rootCAPath;
+          document.getElementById('computerCASub').textContent = caInfo.rootCAPath;
+          document.getElementById('rootCAPathText').textContent = caInfo.rootCAPath;
+          document.getElementById('mobileSetupSection').style.display = '';
+          setupMkcertQR();
+        }
+      } else {
+        dot.className = 'status-dot error';
+        text.textContent = '安装失败：' + (result.error || '');
+        btn.textContent = '重试';
+      }
+      btn.disabled = false;
+    }
+
+    // ── 文件操作 ──
+
+    async function setupMkcertQR() {
+      if (!rootCAPath || !whistleRunning || !window.settingsAPI) {
+        document.getElementById('mkcertQRBox').style.display = 'none';
+        document.getElementById('mkcertDownloadUrlBox').style.display = 'none';
+        return;
+      }
+      const downloadUrl = await window.settingsAPI.setMkcertCertRule(rootCAPath);
+      if (downloadUrl) {
+        try {
+          const dataUrl = await window.settingsAPI.generateQRCode(downloadUrl);
+          document.getElementById('mkcertQR').src = dataUrl;
+          document.getElementById('mkcertQRBox').style.display = '';
+          document.getElementById('mkcertDownloadUrl').textContent = downloadUrl;
+          document.getElementById('mkcertDownloadUrlBox').style.display = '';
+        } catch (e) {
+          console.error('生成 mkcert 二维码失败:', e);
+        }
+      }
+    }
+
+    function copyMkcertDownloadUrl() {
+      const url = document.getElementById('mkcertDownloadUrl').textContent;
+      if (url && url !== '-') {
+        copyText(url);
+      }
+    }
+
+    function revealRootCA() {
+      if (rootCAPath && window.settingsAPI) {
+        window.settingsAPI.revealFile(rootCAPath);
+      }
+    }
+
+    function copyCmd(elementId) {
+      const code = document.getElementById(elementId);
+      copyText(code.textContent);
+    }
+
+    function copyText(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        // 可以加一个简短的反馈效果
+      });
+    }
+
+    // ── 平台选项卡切换 ──
+
+    function switchInstallPlatform(tab, platform) {
+      const tabs = tab.parentElement.querySelectorAll('.platform-tab');
+      tabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      document.getElementById('install-macos').classList.toggle('active', platform === 'macos');
+      document.getElementById('install-windows').classList.toggle('active', platform === 'windows');
+      document.getElementById('install-linux').classList.toggle('active', platform === 'linux');
+    }
+
+    function switchMobilePlatform(tab, platform) {
+      const tabs = tab.parentElement.querySelectorAll('.platform-tab');
+      tabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      document.getElementById('mobile-ios').classList.toggle('active', platform === 'ios');
+      document.getElementById('mobile-android').classList.toggle('active', platform === 'android');
+    }
+
+    // ── 通用表单逻辑（保留原有功能） ──
+
+    function getFormData() {
+      const manualCert = document.getElementById('cert').value || '';
+      const manualKey = document.getElementById('key').value || '';
+      const useAuto = !manualCert && !!generatedCert;
+      return {
+        port: parseInt(document.getElementById('port').value, 10) || 8899,
+        address: '0.0.0.0',
+        https: document.getElementById('https').checked,
+        cert: manualCert || generatedCert || '',
+        key: manualKey || generatedKey || '',
+        _certAutoGenerated: useAuto,
+        _mobileCAConfirmed: mobileCAConfirmed,
+        _proxyConfigConfirmed: proxyConfigConfirmed,
+        _proxyCertConfirmed: proxyCertConfirmed
+      };
+    }
+
+    function validate() {
+      const port = parseInt(document.getElementById('port').value, 10);
+      const portError = document.getElementById('portError');
+      if (!port || port < 1 || port > 65535) {
+        portError.textContent = '端口号范围为 1 - 65535';
+        portError.classList.add('visible');
+        return false;
+      }
+      portError.classList.remove('visible');
+      return true;
+    }
+
+    function updateStartButton() {
+      const startBtn = document.getElementById('startBtn');
+      const hint = document.getElementById('startHint');
+      const isHttps = httpsToggle.checked;
+
+      // 检查 whistle 代理相关确认（始终需要）
+      if (whistleRunning && !proxyConfigConfirmed) {
+        startBtn.disabled = true;
+        hint.textContent = '请确认手机端已完成代理配置';
+        hint.classList.add('visible');
+        return;
+      }
+
+      if (whistleRunning && !proxyCertConfirmed) {
+        startBtn.disabled = true;
+        hint.textContent = '请确认手机端已完成代理证书安装';
+        hint.classList.add('visible');
+        return;
+      }
+
+      if (!isHttps) {
+        startBtn.disabled = false;
+        hint.classList.remove('visible');
+        return;
+      }
+
+      const hasManualCert = !!(document.getElementById('cert').value && document.getElementById('key').value);
+
+      if (hasManualCert) {
+        startBtn.disabled = false;
+        hint.classList.remove('visible');
+        return;
+      }
+
+      if (!mkcertInstalled) {
+        startBtn.disabled = true;
+        hint.textContent = '请先安装 mkcert 或手动指定证书';
+        hint.classList.add('visible');
+        return;
+      }
+
+      if (!mobileCAConfirmed) {
+        startBtn.disabled = true;
+        hint.textContent = '请确认手机端已完成 mkcert 根证书安装';
+        hint.classList.add('visible');
+        return;
+      }
+
+      startBtn.disabled = false;
+      hint.classList.remove('visible');
+    }
+
+    async function startServer() {
+      if (!validate()) return;
+
+      const port = parseInt(document.getElementById('port').value, 10);
+      const portError = document.getElementById('portError');
+      const startBtn = document.getElementById('startBtn');
+
+      startBtn.disabled = true;
+      startBtn.textContent = '检查中...';
+
+      if (window.settingsAPI) {
+        const available = await window.settingsAPI.checkPort(port);
+        if (!available) {
+          portError.textContent = `端口 ${port} 已被占用，请更换其他端口`;
+          portError.classList.add('visible');
+          startBtn.textContent = 'Start Server';
+          updateStartButton();
+          return;
+        }
+        portError.classList.remove('visible');
+        startBtn.textContent = '启动中...';
+        window.settingsAPI.saveAndStart(getFormData());
+      }
+    }
+
+    function resetDefaults() {
+      document.getElementById('port').value = 8899;
+      document.getElementById('https').checked = false;
+      document.getElementById('cert').value = '';
+      document.getElementById('key').value = '';
+      certSection.classList.remove('visible');
+      document.getElementById('portError').classList.remove('visible');
+      generatedCert = '';
+      generatedKey = '';
+      if (!mkcertInstalled) {
+        mobileCAConfirmed = false;
+        syncMobileCAUI();
+      }
+      updateStartButton();
+    }
+
+    async function browseCert() {
+      if (window.settingsAPI) {
+        const filePath = await window.settingsAPI.browseFile('Select SSL Certificate');
+        if (filePath) {
+          document.getElementById('cert').value = filePath;
+          updateStartButton();
+        }
+      }
+    }
+
+    async function browseKey() {
+      if (window.settingsAPI) {
+        const filePath = await window.settingsAPI.browseFile('Select SSL Private Key');
+        if (filePath) {
+          document.getElementById('key').value = filePath;
+          updateStartButton();
+        }
+      }
+    }
+
+    // ── Whistle 代理 ──
+
+    async function refreshWhistleInfo() {
+      if (!window.settingsAPI) return;
+
+      const dot = document.getElementById('whistleDot');
+      const text = document.getElementById('whistleStatusText');
+      const sub = document.getElementById('whistlePortText');
+
+      dot.className = 'status-dot loading';
+      text.textContent = '检测中...';
+
+      const info = await window.settingsAPI.getWhistleInfo();
+      whistleRunning = info.running;
+      whistlePort = info.port;
+      whistleCertDownloadUrl = info.certDownloadUrl || '';
+
+      const panelBtn = document.getElementById('btnOpenWhistlePanel');
+
+      if (info.running) {
+        dot.className = 'status-dot success';
+        text.textContent = '代理已启动';
+        sub.textContent = `${info.localIP}:${info.port}`;
+        panelBtn.style.display = '';
+
+        document.getElementById('proxySetupSection').style.display = '';
+        document.getElementById('whistleCertSection').style.display = '';
+        document.getElementById('proxyAddressText').textContent =
+          `服务器: ${info.localIP}  端口: ${info.port}`;
+        document.getElementById('whistleCertUrl').textContent =
+          info.certDownloadUrl || '-';
+
+        // 生成证书下载二维码
+        if (info.certDownloadUrl) {
+          try {
+            const dataUrl = await window.settingsAPI.generateQRCode(info.certDownloadUrl);
+            document.getElementById('whistleCertQR').src = dataUrl;
+            document.getElementById('whistleCertQRBox').style.display = '';
+          } catch (e) {
+            console.error('生成二维码失败:', e);
+            document.getElementById('whistleCertQRBox').style.display = 'none';
+          }
+        } else {
+          document.getElementById('whistleCertQRBox').style.display = 'none';
+        }
+      } else {
+        dot.className = 'status-dot error';
+        text.textContent = '代理未启动';
+        sub.textContent = '';
+        panelBtn.style.display = 'none';
+        document.getElementById('proxySetupSection').style.display = 'none';
+        document.getElementById('whistleCertSection').style.display = 'none';
+      }
+
+      updateStartButton();
+    }
+
+    function switchProxyPlatform(tab, platform) {
+      const tabs = tab.parentElement.querySelectorAll('.platform-tab');
+      tabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('proxy-ios').classList.toggle('active', platform === 'ios');
+      document.getElementById('proxy-android').classList.toggle('active', platform === 'android');
+    }
+
+    function switchWhistleCertPlatform(tab, platform) {
+      const tabs = tab.parentElement.querySelectorAll('.platform-tab');
+      tabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('wcert-ios').classList.toggle('active', platform === 'ios');
+      document.getElementById('wcert-android').classList.toggle('active', platform === 'android');
+    }
+
+    function openWhistlePanel() {
+      if (whistlePort) {
+        window.settingsAPI.openExternal(`http://127.0.0.1:${whistlePort}`);
+      }
+    }
+
+    function openUsageDoc() {
+      if (!window.settingsAPI) return;
+      window.settingsAPI.openInSystemBrowser(
+        'https://micoworld.feishu.cn/wiki/Tzi8wyY4Ui9IeAk8TjCcvwfXnIf'
+      );
+    }
+
+    function openDownloadPage() {
+      if (!window.settingsAPI) return;
+      window.settingsAPI.openInSystemBrowser(
+        'https://micoworld.feishu.cn/wiki/Ijeww2Hhiie1KykZWY8coaxjn2c'
+      );
+    }
+
+    function copyProxyAddress() {
+      if (whistlePort && localIP) {
+        copyText(`${localIP}:${whistlePort}`);
+      }
+    }
+
+    function copyWhistleCertUrl() {
+      if (whistleCertDownloadUrl) {
+        copyText(whistleCertDownloadUrl);
+      }
+    }
+
+    function syncProxyConfigUI() {
+      document.getElementById('proxyConfigConfirmRow').style.display = proxyConfigConfirmed ? 'none' : '';
+      document.getElementById('proxyConfigConfirmedRow').style.display = proxyConfigConfirmed ? '' : 'none';
+    }
+
+    function confirmProxyConfig() {
+      proxyConfigConfirmed = true;
+      syncProxyConfigUI();
+      updateStartButton();
+    }
+
+    function resetProxyConfig() {
+      proxyConfigConfirmed = false;
+      syncProxyConfigUI();
+      updateStartButton();
+    }
+
+    function syncProxyCertUI() {
+      document.getElementById('proxyCertConfirmRow').style.display = proxyCertConfirmed ? 'none' : '';
+      document.getElementById('proxyCertConfirmedRow').style.display = proxyCertConfirmed ? '' : 'none';
+    }
+
+    function confirmProxyCert() {
+      proxyCertConfirmed = true;
+      syncProxyCertUI();
+      updateStartButton();
+    }
+
+    function resetProxyCert() {
+      proxyCertConfirmed = false;
+      syncProxyCertUI();
+      updateStartButton();
+    }
+
+    // ── details 展开/收起过渡动画 ──
+
+    document.querySelectorAll('details').forEach((el) => {
+      const summary = el.querySelector(':scope > summary');
+      if (!summary) return;
+
+      summary.addEventListener('click', (e) => {
+        e.preventDefault();
+        const body = el.querySelector(':scope > .detail-body')
+          || el.querySelector(':scope > .config-group-body');
+        if (!body) {
+          el.open = !el.open;
+          return;
+        }
+
+        if (el.open) {
+          const h = body.scrollHeight;
+          body.style.maxHeight = h + 'px';
+          body.style.transition = 'max-height 0.25s ease, opacity 0.2s ease';
+          body.style.opacity = '1';
+          requestAnimationFrame(() => {
+            body.style.maxHeight = '0';
+            body.style.opacity = '0';
+          });
+          const onEnd = () => {
+            el.open = false;
+            body.style.maxHeight = '';
+            body.style.opacity = '';
+            body.style.transition = '';
+            body.removeEventListener('transitionend', onEnd);
+          };
+          body.addEventListener('transitionend', onEnd);
+        } else {
+          el.open = true;
+          body.style.overflow = 'hidden';
+          body.style.maxHeight = '0';
+          body.style.opacity = '0';
+          requestAnimationFrame(() => {
+            body.style.transition = 'max-height 0.25s ease, opacity 0.2s ease';
+            requestAnimationFrame(() => {
+              body.style.maxHeight = body.scrollHeight + 'px';
+              body.style.opacity = '1';
+            });
+          });
+          const onEnd = () => {
+            body.style.maxHeight = '';
+            body.style.opacity = '';
+            body.style.overflow = '';
+            body.style.transition = '';
+            body.removeEventListener('transitionend', onEnd);
+          };
+          body.addEventListener('transitionend', onEnd);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

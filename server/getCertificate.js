@@ -9,10 +9,18 @@ const { execSync } = require('child_process');
 const findCacheDir = require('find-cache-dir');
 const selfsigned = require('selfsigned');
 
+// 获取包含 Homebrew 路径的环境变量（Electron 打包后 PATH 不含 /opt/homebrew/bin）
+function getMkcertEnv() {
+    return {
+        ...process.env,
+        PATH: ['/opt/homebrew/bin', '/usr/local/bin', process.env.PATH || ''].join(':')
+    };
+}
+
 // 检查 mkcert 是否可用
 function checkMkcertAvailable() {
     try {
-        execSync('mkcert -version', { stdio: 'ignore' });
+        execSync('mkcert -version', { stdio: 'ignore', env: getMkcertEnv() });
         return true;
     } catch (error) {
         return false;
@@ -221,7 +229,7 @@ function validateCertificateWithOpenSSL(certPath, domains, logger) {
 // 获取 mkcert 根目录
 function getMkcertCAROOT() {
     try {
-        return execSync('mkcert -CAROOT', { encoding: 'utf8' }).trim();
+        return execSync('mkcert -CAROOT', { encoding: 'utf8', env: getMkcertEnv() }).trim();
     } catch (error) {
         // 如果 mkcert 不可用，使用默认路径
         return path.join(process.env.HOME || process.env.USERPROFILE, '.local', 'share', 'mkcert');
@@ -252,12 +260,19 @@ function generateDomainList(serverConfig) {
 }
 
 // 为指定域名生成或获取 mkcert 证书
-function setupMkcertCertificate(domains, logger) {
+function setupMkcertCertificate(domains, logger, certDir) {
     const domainString = domains.join(' ');
     const certName = domains.join('+');
 
-    // 使用当前工作目录存储证书
-    const certDir = process.cwd();
+    // 使用传入目录；回退到根目录（避免 process.cwd() 在打包后不可写）
+    certDir = certDir || path.join(os.homedir(), '.remote-devtools', 'certs');
+    try {
+        fs.mkdirSync(certDir, { recursive: true });
+    } catch (e) {
+        // 目录创建失败时使用临时目录
+        certDir = path.join(os.tmpdir(), 'remote-devtools-certs');
+        fs.mkdirSync(certDir, { recursive: true });
+    }
     let certFile = path.join(certDir, `${certName}.pem`);
     let keyFile = path.join(certDir, `${certName}-key.pem`);
 
@@ -320,55 +335,11 @@ function setupMkcertCertificate(domains, logger) {
         try {
             logger.info(`🔨 Generating mkcert certificate...`);
 
-            // 确保目录存在
-            fs.mkdirSync(certDir, { recursive: true });
-
-            // 切换到证书目录并生成证书
-            const originalCwd = process.cwd();
-            let actualCertFile = null;
-            let actualKeyFile = null;
-
-            try {
-                process.chdir(certDir);
-                // 捕获 mkcert 输出以获取实际文件名，抑制标准输出
-                const output = execSync(`mkcert ${domainString} 2>/dev/null`, {
-                    encoding: 'utf8'
-                });
-
-                // 解析输出获取实际文件名
-                const certMatch = output.match(/The certificate is at ["\.]?\.?\/([^"\s]+\.pem)"/i);
-                const keyMatch = output.match(/(?:and )?the key at ["\.]?\.?\/([^"\s]+\.pem)"/i);
-
-                if (certMatch && keyMatch) {
-                    actualCertFile = path.join(certDir, certMatch[1]);
-                    actualKeyFile = path.join(certDir, keyMatch[1]);
-                }
-            } finally {
-                process.chdir(originalCwd);
-            }
-
-            // 如果解析到了实际文件名，更新文件路径
-            if (actualCertFile && actualKeyFile) {
-                certFile = actualCertFile;
-                keyFile = actualKeyFile;
-            } else {
-                // 如果解析失败，尝试扫描目录查找新生成的证书文件
-                try {
-                    const files = fs.readdirSync(certDir);
-                    const certFiles = files.filter(f => f.startsWith('localhost') && f.endsWith('.pem') && !f.endsWith('-key.pem'));
-                    const keyFiles = files.filter(f => f.startsWith('localhost') && f.endsWith('-key.pem'));
-
-                    if (certFiles.length > 0 && keyFiles.length > 0) {
-                        // 使用最新的证书文件
-                        const latestCert = certFiles[certFiles.length - 1];
-                        const latestKey = keyFiles[keyFiles.length - 1];
-                        certFile = path.join(certDir, latestCert);
-                        keyFile = path.join(certDir, latestKey);
-                    }
-                } catch (scanError) {
-                    logger.warn('Failed to scan directory for certificate files:', scanError.message);
-                }
-            }
+            // 使用 -cert-file / -key-file 直接指定输出路径，避免 process.chdir 影响整个进程
+            execSync(
+                `mkcert -cert-file "${certFile}" -key-file "${keyFile}" ${domainString}`,
+                { encoding: 'utf8', stdio: 'pipe', env: getMkcertEnv() }
+            );
 
             logger.info('✅ Mkcert certificate generated successfully');
         } catch (error) {
@@ -458,7 +429,7 @@ function tryMkcertCertificate(httpsOptions, logger) {
     // 根据服务器配置生成域名列表
     const domains = generateDomainList(httpsOptions);
 
-    const mkcertCert = setupMkcertCertificate(domains, logger);
+    const mkcertCert = setupMkcertCertificate(domains, logger, httpsOptions.certDir);
     if (mkcertCert) {
         logger.info('🔒 Using mkcert certificate (trusted)');
         return mkcertCert;
@@ -469,12 +440,16 @@ function tryMkcertCertificate(httpsOptions, logger) {
 }
 
 // 3. 生成自签名证书作为回退方案
-function trySelfsignedCertificate(logger) {
+function trySelfsignedCertificate(logger, serverConfig) {
     logger.warn('⚠️ Using self-signed certificate (will show browser warnings)');
 
+    const serverIP = serverConfig && serverConfig.serverAddress;
     const certificateDir = findCacheDir({name: 'remote-devtools'}) || os.tmpdir();
-    const certificatePath = path.join(certificateDir, 'server.pem');
-    const certificateKeyPath = path.join(certificateDir, 'server-key.pem');
+
+    // 以服务器 IP 区分缓存文件名，确保 IP 变化时重新生成
+    const ipSuffix = serverIP ? `-${serverIP.replace(/\./g, '_')}` : '';
+    const certificatePath = path.join(certificateDir, `server${ipSuffix}.pem`);
+    const certificateKeyPath = path.join(certificateDir, `server${ipSuffix}-key.pem`);
 
     let certificateExists = fs.existsSync(certificatePath) && fs.existsSync(certificateKeyPath);
 
@@ -496,9 +471,9 @@ function trySelfsignedCertificate(logger) {
     }
 
     if (!certificateExists) {
-        // 静默生成自签名证书
-        const attributes = [{name: 'commonName', value: 'localhost'}];
-        const pems = createCertificate(attributes);
+        // 静默生成自签名证书，包含服务器实际 IP 地址
+        const attributes = [{name: 'commonName', value: serverIP || 'localhost'}];
+        const pems = createCertificate(attributes, serverIP);
 
         fs.mkdirSync(certificateDir, {recursive: true});
         fs.writeFileSync(certificatePath, pems.cert, { encoding: 'utf8' });
@@ -517,16 +492,25 @@ function trySelfsignedCertificate(logger) {
 }
 
 // 生成自签名证书，参考 webpack-dev-server 的实现
-function createCertificate(attributes) {
+function createCertificate(attributes, serverIP) {
+    const altNames = [
+        { type: 2, value: 'localhost' },
+        { type: 2, value: 'localhost.localdomain' },
+        { type: 7, ip: '127.0.0.1' },
+        { type: 7, ip: '::1' },
+        { type: 7, ip: 'fe80::1' }
+    ];
+
+    // 动态添加服务器实际局域网 IP（避免 WSS 连接因 IP 不在 SAN 中被拒绝）
+    if (serverIP && serverIP !== '127.0.0.1' && serverIP !== 'localhost') {
+        altNames.push({ type: 7, ip: serverIP });
+    }
+
     return selfsigned.generate(attributes, {
         algorithm: 'sha256',
         days: 30,
         keySize: 2048,
         extensions: [
-            // {
-            //   name: 'basicConstraints',
-            //   cA: true,
-            // },
             {
                 name: 'keyUsage',
                 keyCertSign: true,
@@ -544,66 +528,7 @@ function createCertificate(attributes) {
             },
             {
                 name: 'subjectAltName',
-                altNames: [
-                    {
-                        // type 2 is DNS
-                        type: 2,
-                        value: 'localhost'
-                    },
-                    {
-                        type: 2,
-                        value: 'localhost.localdomain'
-                    },
-                    {
-                        type: 2,
-                        value: 'baidu.com'
-                    },
-                    {
-                        type: 2,
-                        value: '*.baidu.com'
-                    },
-                    {
-                        type: 2,
-                        value: 'baidu-int.com'
-                    },
-                    {
-                        type: 2,
-                        value: '*.baidu-int.com'
-                    },
-                    {
-                        type: 2,
-                        value: 'duxiaoman.com'
-                    },
-                    {
-                        type: 2,
-                        value: '*.duxiaoman.com'
-                    },
-                    {
-                        type: 2,
-                        value: 'duxiaoman-int.com'
-                    },
-                    {
-                        type: 2,
-                        value: '*.duxiaoman-int.com'
-                    },
-                    {
-                        type: 2,
-                        value: '[::1]'
-                    },
-                    {
-                        type: 7,  // IP 类型
-                        ip: '172.30.14.59'
-                    },
-                    {
-                        // type 7 is IP
-                        type: 7,
-                        ip: '127.0.0.1'
-                    },
-                    {
-                        type: 7,
-                        ip: 'fe80::1'
-                    }
-                ]
+                altNames
             }
         ]
     });
@@ -630,8 +555,8 @@ function getCertificate(logger, serverConfig = {}) {
         };
     }
 
-    // 3. 回退到自签名证书
-    const selfsignedCert = trySelfsignedCertificate(logger);
+    // 3. 回退到自签名证书（传入 serverConfig 以便动态包含服务器 IP）
+    const selfsignedCert = trySelfsignedCertificate(logger, serverConfig);
     return {
         key: selfsignedCert.key,
         cert: selfsignedCert.cert

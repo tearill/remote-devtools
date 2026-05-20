@@ -26,11 +26,33 @@
             color: white;
             padding: 20px;
             text-align: center;
+            position: relative;
         }
         .header h1 {
             margin: 0;
             font-size: 28px;
             font-weight: 600;
+        }
+        .header-actions {
+            display: none;
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            gap: 8px;
+        }
+        .btn-header {
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-header:hover {
+            background: rgba(255,255,255,0.3);
         }
         .status {
             display: inline-block;
@@ -271,6 +293,10 @@
         <div class="header">
             <h1>Remote DevTools Inspector</h1>
             <span id="status" class="status connecting">Connecting</span>
+            <div class="header-actions" id="headerActions">
+                <button class="btn-header" id="btnWhistle" style="display:none" onclick="openWhistlePanel()">Whistle</button>
+                <button class="btn-header" onclick="openSettings()">Settings</button>
+            </div>
         </div>
 
         <div class="content">
@@ -346,6 +372,33 @@
     <script>
         let homeWs = null;
         let backends = [];
+
+        let whistlePort = null;
+
+        // Electron 环境下显示顶部按钮组
+        if (window.electronAPI && window.electronAPI.isElectron) {
+            document.getElementById('headerActions').style.display = 'flex';
+
+            // 检查 Whistle 代理状态
+            window.electronAPI.getWhistleInfo().then((info) => {
+                if (info && info.running) {
+                    whistlePort = info.port;
+                    document.getElementById('btnWhistle').style.display = '';
+                }
+            });
+        }
+
+        function openSettings() {
+            if (window.electronAPI && window.electronAPI.openSettings) {
+                window.electronAPI.openSettings();
+            }
+        }
+
+        function openWhistlePanel() {
+            if (window.electronAPI && whistlePort) {
+                window.electronAPI.openExternal(`http://127.0.0.1:${whistlePort}`);
+            }
+        }
 
         // Initialize page with config
         window.addEventListener('DOMContentLoaded', function() {
@@ -590,7 +643,15 @@
                 const chiipath = `${location.protocol}//${location.host}/chii/chii_app.html`;
                 const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
                 const url = `${chiipath}?${protocol}=${__config__.wsHost}:${__config__.wsPort}/frontend/chii/${id}`;
-                window.open(url, 'Chrome DevTools');
+
+                const backend = backends.find(b => b.id === id);
+                const title = backend ? (backend.title || 'DevTools') : 'DevTools';
+
+                if (window.electronAPI && window.electronAPI.isElectron) {
+                    window.electronAPI.openDevtools(url, title);
+                } else {
+                    window.open(url, 'Chrome DevTools');
+                }
             }
         }
 

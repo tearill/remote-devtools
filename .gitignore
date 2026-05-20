@@ -1,3 +1,12 @@
 node_modules
 dist
 *.pem
+release/
+release/*.yaml
+release/*.yml
+release/*/*.blockmap
+release/*/*.yml
+release/*/*.yaml
+release/*/*.zip
+release/*/mac-arm64
+release/*/win-arm64-unpacked
