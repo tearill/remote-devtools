@@ -1,9 +1,20 @@
 const startWhistle = require('whistle');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const http = require('http');
 const { app } = require('electron');
 const configStore = require('./configStore');
+
+// whistle 把 rules / values 持久化到这个目录，每次启动前清空保证状态干净
+const WHISTLE_STORAGE_NAME = 'remote-devtools-proxy';
+const WHISTLE_STORAGE_DIR = path.join(
+  os.homedir(),
+  '.WhistleAppData',
+  '.whistle',
+  'custom_dirs',
+  WHISTLE_STORAGE_NAME
+);
 const {
   UNPKG_HOST_CACHE_RULE,
   VCONSOLE_MAP_RULES
@@ -22,16 +33,25 @@ function start(port) {
 
   proxyPort = port;
 
+  // 清理上次遗留的规则 / Values，避免读到旧配置
+  try {
+    fs.rmSync(WHISTLE_STORAGE_DIR, { recursive: true, force: true });
+    console.log('[Whistle] Cleared previous storage:', WHISTLE_STORAGE_DIR);
+  } catch (e) {
+    console.warn('[Whistle] Failed to clear storage:', e.message);
+  }
+
   return new Promise((resolve, reject) => {
     try {
       startWhistle({
         port,
         host: '0.0.0.0',
-        storage: 'remote-devtools-proxy',
+        storage: WHISTLE_STORAGE_NAME,
         certDir: path.join(app.getPath('userData'), 'whistle-certs')
       }, (result) => {
         whistleResult = result;
         console.log(`[Whistle] Proxy started on port ${port}`);
+        enableHttpsCapture(port);
         resolve({ port });
       });
     } catch (e) {
@@ -63,6 +83,7 @@ function updateRules(options) {
 
   const { devtoolsPort, protocol, localIP } = options;
   const serverUrl = `${protocol}://${localIP}:${devtoolsPort}`;
+  const htmlInjectFilePath = path.join(getTempDir(), 'remote-devtools-html-inject.html');
 
   // 注入脚本内容（各 vConsole 版本共用）
   const injectScript = [
@@ -76,6 +97,28 @@ function updateRules(options) {
     '}, 500);'
   ].join('\n');
 
+  // HTML 注入内容：不依赖 vconsole 请求，直接在文档响应中插入
+  const htmlInjectSnippet = [
+    '<script>',
+    '(function(){',
+    '  if (window.__remote_devtools_backend_loaded__ || window.__remote_devtools_html_injected__) return;',
+    '  window.__remote_devtools_html_injected__ = true;',
+    `  window.__remote_devtools_ws_query__='${serverUrl}?ws=1&wsHost=${localIP}&wsPort=${devtoolsPort}';`,
+    "  var s=document.createElement('script');",
+    `  s.src='${serverUrl}/ws-backend.js';`,
+    '  s.async=true;',
+    '  (document.head || document.documentElement).appendChild(s);',
+    '})();',
+    '</script>'
+  ].join('\n');
+
+  try {
+    fs.writeFileSync(htmlInjectFilePath, htmlInjectSnippet, 'utf-8');
+  } catch (e) {
+    console.error('[Whistle] Failed to write HTML inject snippet:', e);
+    return;
+  }
+
   const mappingRules = [];
   for (const rule of VCONSOLE_MAP_RULES) {
     const sourcePath = getPublicFilePath(rule.sourceFile);
@@ -85,13 +128,32 @@ function updateRules(options) {
       fs.writeFileSync(combinedPath, content + injectScript, 'utf-8');
       console.log('[Whistle] Combined vconsole written:', rule.cdnUrl, '->', combinedPath);
     } catch (e) {
-      console.error('[Whistle] Failed to write combined vconsole for', rule.cdnUrl, e);
+      console.error(
+        '[Whistle] Failed to write combined vconsole for',
+        rule.cdnUrl,
+        'source:',
+        sourcePath,
+        e
+      );
       return;
     }
     mappingRules.push(`${rule.cdnUrl} file://${combinedPath} enable://capture`);
   }
 
-  const rules = [UNPKG_HOST_CACHE_RULE, ...mappingRules].join('\n');
+  const noCacheRules = [
+    'http*://** delete://reqHeaders.if-none-match',
+    'http*://** delete://reqHeaders.if-modified-since',
+    'http*://** reqHeaders://cache-control=no-cache&pragma=no-cache'
+  ];
+  const htmlInjectRules = [
+    `http*://** htmlAppend://${htmlInjectFilePath} enable://safeHtml`
+  ];
+  const rules = [
+    ...noCacheRules,
+    ...htmlInjectRules,
+    UNPKG_HOST_CACHE_RULE,
+    ...mappingRules
+  ].join('\n');
 
   // 记录并设置 shadow rules
   currentShadowRules = rules;
@@ -121,9 +183,38 @@ function getTempDir() {
  */
 function getPublicFilePath(filename) {
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'app', 'public', filename);
+    // 打包后 public/ 位于 app.asar 内，Node 能直接通过 app.getAppPath() 读取
+    return path.join(app.getAppPath(), 'public', filename);
   }
   return path.join(__dirname, '..', '..', 'public', filename);
+}
+
+/**
+ * 默认开启 HTTPS 抓包（等价于面板里手动勾选 Capture HTTPS CONNECTs）
+ */
+function enableHttpsCapture(port) {
+  const body = 'interceptHttpsConnects=1';
+  const req = http.request({
+    hostname: '127.0.0.1',
+    port,
+    path: '/cgi-bin/intercept-https-connects',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': Buffer.byteLength(body)
+    }
+  }, (res) => {
+    let data = '';
+    res.on('data', (chunk) => { data += chunk; });
+    res.on('end', () => {
+      console.log('[Whistle] Enable HTTPS capture response:', data);
+    });
+  });
+  req.on('error', (e) => {
+    console.error('[Whistle] Failed to enable HTTPS capture:', e.message);
+  });
+  req.write(body);
+  req.end();
 }
 
 /**
