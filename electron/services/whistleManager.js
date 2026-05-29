@@ -120,25 +120,26 @@ function updateRules(options) {
   }
 
   const mappingRules = [];
-  for (const rule of VCONSOLE_MAP_RULES) {
-    const sourcePath = getPublicFilePath(rule.sourceFile);
-    const combinedPath = path.join(getTempDir(), rule.combinedFile);
-    try {
-      const content = fs.readFileSync(sourcePath, 'utf-8');
-      fs.writeFileSync(combinedPath, content + injectScript, 'utf-8');
-      console.log('[Whistle] Combined vconsole written:', rule.cdnUrl, '->', combinedPath);
-    } catch (e) {
-      console.error(
-        '[Whistle] Failed to write combined vconsole for',
-        rule.cdnUrl,
-        'source:',
-        sourcePath,
-        e
-      );
-      return;
-    }
-    mappingRules.push(`${rule.cdnUrl} file://${combinedPath} enable://capture`);
-  }
+  // 暂时停用 vconsole 代理替换方案（保留代码，便于后续快速回滚）
+  // for (const rule of VCONSOLE_MAP_RULES) {
+  //   const sourcePath = getPublicFilePath(rule.sourceFile);
+  //   const combinedPath = path.join(getTempDir(), rule.combinedFile);
+  //   try {
+  //     const content = fs.readFileSync(sourcePath, 'utf-8');
+  //     fs.writeFileSync(combinedPath, content + injectScript, 'utf-8');
+  //     console.log('[Whistle] Combined vconsole written:', rule.cdnUrl, '->', combinedPath);
+  //   } catch (e) {
+  //     console.error(
+  //       '[Whistle] Failed to write combined vconsole for',
+  //       rule.cdnUrl,
+  //       'source:',
+  //       sourcePath,
+  //       e
+  //     );
+  //     return;
+  //   }
+  //   mappingRules.push(`${rule.cdnUrl} file://${combinedPath} enable://capture`);
+  // }
 
   const noCacheRules = [
     'http*://** delete://reqHeaders.if-none-match',
@@ -151,8 +152,9 @@ function updateRules(options) {
   const rules = [
     ...noCacheRules,
     ...htmlInjectRules,
-    UNPKG_HOST_CACHE_RULE,
-    ...mappingRules
+    // 暂时停用 vconsole 规则（保留注释，便于后续恢复）
+    // UNPKG_HOST_CACHE_RULE,
+    // ...mappingRules
   ].join('\n');
 
   // 记录并设置 shadow rules
